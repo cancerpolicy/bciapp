@@ -225,7 +225,7 @@ datain.tx <- reactive({
                txSSno=1:14,
                txSSid=rep(c('Tamoxifen', 'Chemo', 'None', 'Tamoxifen+Chemo',
                             'Tamoxifen', 'Chemo', 'None'), 2),
-               txHR=rep(c(0.7, 0.775, 1, 0.5425, 0.7, 0.775, 1), 2),
+               txHR=rep(c(1, 0.775, 1, 0.5425, 0.7, 0.775, 1), 2),
                control=c(e0t.reactive(), a0t.reactive()),
                intervention=c(e1t.reactive(), a1t.reactive()),
                stringsAsFactors=FALSE)
