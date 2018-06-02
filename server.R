@@ -46,7 +46,7 @@ output$debug <- renderTable({
 output$chooseInc <- renderUI({
     data(incratesf)
     countries <- as.character(unique(incratesf$Country))
-    selectizeInput('incCountry', 'Choose country for incidence data',
+    selectizeInput('incCountry', '',
                    choices=countries,
                    selected='Uganda',
                    options=list(maxItems=1, placeholder='Uganda'))
@@ -54,10 +54,10 @@ output$chooseInc <- renderUI({
 output$chooseMort <- renderUI({
     data(allmortratesf)
     countries <- as.character(unique(allmortratesf$Country))
-    selectizeInput('mortCountry', 'Choose country for all-cause mortality data',
+    selectizeInput('mortCountry', '',
                    choices=countries,
                    selected='Uganda',
-                   options=list(maxItems=1, placeholder='Tanzania'))
+                   options=list(maxItems=1, placeholder='Uganda'))
 })
 
 output$inccountry <- renderText({
@@ -112,7 +112,7 @@ prop_s <- reactive({ 1-(input$prop_a1/input$prop_a0) })
 # Summary, to display to user
 #-------------------------------------------------------------------------------
 output$edsummary <- renderTable({
-    data.frame(Parameter=c('Percent advanced stage, control', 
+    data.frame(Parameter=c('Percent advanced stage, standard of care', 
                            'Percent advanced stage, intervention', 
                            'Percent reduction in advanced stage due to intervention'),
                Value=c(input$prop_a0, input$prop_a1, 100*prop_s()))
@@ -135,7 +135,7 @@ datain.scenarios <- reactive({
     return(
            data.frame(num=1:2,
                       id=c('control', 'intervention'),
-                      name=c('Control', 'Intervention'),
+                      name=c('Standard of Care', 'Intervention'),
                       pairnum=pairnum,
                       earlydetHR=c(1, 1-prop_s()),
                       stringsAsFactors=FALSE)
@@ -161,7 +161,7 @@ a0t.reactive <- reactive({
     return(treatvec)
 })
 output$a0t <- renderUI({
-    textInput('prop.a0.t', 'Advanced cases, control', 
+    textInput('prop.a0.t', 'Advanced cases, standard of care', 
                 paste(as.character(a0t.reactive()),collapse=','))
 })
 
@@ -175,7 +175,7 @@ e0t.reactive  <- reactive({
     return(treatvec)
 })
 output$e0t <- renderUI({
-    textInput('prop.e0.t', 'Early cases, control', 
+    textInput('prop.e0.t', 'Early cases, standard of care', 
               paste(as.character(e0t.reactive()),collapse=','))
 })
 
@@ -240,7 +240,7 @@ output$paramsum1 <- renderTable({
   data.frame(Parameter=c('Percent ER+',
                          'Percent surviving k years, advanced stage',
                          'Percent surviving k years, early stage',
-                         'Percent presenting in advanced stage, control',
+                         'Percent presenting in advanced stage, standard of care',
                          'Percent presenting in advanced stage, intervention'
                          ),
              Value=c(input$prop_ERpos,
@@ -256,7 +256,7 @@ output$paramsum2 <- renderTable({
              Treatment=
                  c(rep(c('', 'None', 'Endocrine', 'Chemo', 'Endocrine+Chemo'),2))
              ,
-             Control=c(NA,
+             `Standard of Care`=c(NA,
                        100*a0t.reactive()[c('ERpos.None', 'ERpos.Tam', 'ERpos.Chemo', 
                                         'ERpos.TamChemo')]/prop_ERpos(),
                        NA,
@@ -277,7 +277,7 @@ output$paramsum3 <- renderTable({
              Treatment=
                  c(rep(c('', 'None', 'Endocrine', 'Chemo', 'Endocrine+Chemo'),2))
              ,
-             Control=c(NA,
+             `Standard of Care`=c(NA,
                        100*e0t.reactive()[c('ERpos.None', 'ERpos.Tam', 'ERpos.Chemo', 
                                         'ERpos.TamChemo')]/prop_ERpos(),
                        NA,
@@ -302,11 +302,11 @@ output$hazards <- renderTable({
              ,
              `Hazard Ratio`=
                  c(NA, 0.7, 0.775, 0.5425, NA, 0.775),
-             `Implied percent improvement in survival`=
+             `Implied % Improvement in Survival`=
                  c(NA, 30, 22.5, 45.75, NA, 22.5),
              check.names=FALSE)
 
-}, NA.string='')
+}, NA.string='', digits=3)
 
 ################################################################################
 # RESULTS
@@ -315,9 +315,10 @@ output$hazards <- renderTable({
 # Tables - mean
 #-------------------------------------------------------------------------------
 
-results <- reactive({
+runresults <- reactive({
+    start <- proc.time()
     # Using defaults for popsize, denom and futimes
-    return(simpolicies(scenarios=datain.scenarios(),
+    results <- simpolicies(scenarios=datain.scenarios(),
                        naturalhist=datain.nh(),
                        treatinfo=datain.tx(),
                        agesource='Standard',
@@ -325,17 +326,31 @@ results <- reactive({
                        maxage=as.numeric(input$agerange[2]),
                        incsource=input$incCountry,
                        mortsource=input$mortCountry,
-                       futimes=c(5,10,20),
+                       futimes=c(10,20),
                        returnstats=c('mean', 'lower', 'upper'),
                        popsize=input$popsize,
-                       sims=input$nsim))
+                       sims=input$nsim)
+    runtime_minutes <- (proc.time()-start)/60
+    return(list(runtime=runtime_minutes, results=results))
 })
 
-output$caption5 <- renderText({
-    if (!is.null(results())) { 
-            paste('Cumulative incidence of breast cancer is', results()[['5']]$mean[1,1])
-    } else 'Waiting for results...'
+runtime <- reactive({
+    return(round(runresults()$runtime['elapsed'], 2))
 })
+
+results <- reactive({
+    return(runresults()$results)
+})
+
+output$runTime <- renderPrint({
+    cat('\n\nRun time in minutes:', runtime())
+})
+
+#output$caption5 <- renderText({
+#    if (!is.null(results())) { 
+#            paste('Cumulative incidence of breast cancer is', results()[['5']]$mean[1,1])
+#    } else 'Waiting for results...'
+#})
 output$caption10 <- renderText({
     if (!is.null(results())) { 
             paste('Cumulative incidence of breast cancer is', results()[['10']]$mean[1,1])
@@ -346,9 +361,9 @@ output$caption20 <- renderText({
             paste('Cumulative incidence of breast cancer is', results()[['20']]$mean[1,1])
     } else 'Waiting for results...'
 })
-output$resultsTable5 <- renderTable({
-    results()[['5']]$mean[2:6,]
-}, digits=2, include.rownames=TRUE)
+#output$resultsTable5 <- renderTable({
+#    results()[['5']]$mean[2:6,]
+#}, digits=2, include.rownames=TRUE)
 output$resultsTable10 <- renderTable({
     results()[['10']]$mean[2:6,]
 }, digits=2, include.rownames=TRUE)
@@ -364,9 +379,9 @@ uncertainty <- reactive({
                               digits=c(0,0,1,2,1,0)))
 })
 
-output$uncertaintyTable5 <- renderTable({
-    uncertainty()[['5']]
-}, rownames = TRUE)
+#output$uncertaintyTable5 <- renderTable({
+#    uncertainty()[['5']]
+#}, rownames = TRUE)
 output$uncertaintyTable10 <- renderTable({
     uncertainty()[['10']]
 }, rownames = TRUE)
@@ -389,10 +404,10 @@ output$resultsGraph <- renderPlot({
                           return(x)
              })
     results <- ldply(results, .id='Year')
-    colnames(results)[2:3] <- c('Control', 'Intervention') 
-    results <- results[,c('Year', 'Statistic', 'Control', 'Intervention')]
+    colnames(results)[2:3] <- c('Standard of Care', 'Intervention') 
+    results <- results[,c('Year', 'Statistic', 'Standard of Care', 'Intervention')]
     results <- transform(results, 
-                         `Gained by Intervention`=Intervention-Control, 
+                         `Gained by Intervention`=Intervention-`Standard of Care`, 
                          check.names=FALSE)
     sl <- subset(melt(results, id.vars=c('Year', 'Statistic')),
                  Statistic=='% Incident Surviving' & variable!='Intervention')
