@@ -158,39 +158,86 @@ if (1==0) {
     treattumor_props(0.5, 'ERpos', 1, 'ERnegERposAdv', 1)
 }
 
-treattumor_props <- function(prop_ERpos,
-                             tam.elig,
+# 6/2/18 Edits: 
+# - Added stage parameter
+# - Added ERneg.TamChemo as a potential treatment
+# - Instead of having whole vector sum to 1, have props sum to 1 within ERpos/neg
+treattumor_props <- function(stage,       # Early or Advanced
+                             tam.elig,    # 'All' or 'ERpos'
                              tam.prop,
-                             chemo.elig,
-                             chemo.prop) {
-  # 1,2,3 ERneg.Tam, ERneg.Chemo, ERneg.None
-  prop_ERneg <- 1-prop_ERpos
-  ERneg.Tam <- ifelse(tam.elig=='All',prop_ERneg*tam.prop,0)
-  ERneg.Chemo <- prop_ERneg*chemo.prop
-  ERneg.None <- prop_ERneg-ERneg.Tam-ERneg.Chemo
+                             chemo.elig,  # 'All', 'ERneg', or 'ERnegERposAdv'
+                             chemo.prop.) {
+  # We do TamChemo first, because we interpret the Tamoxifen proportion
+  # # as including the Tam-Chemo people
+    
+  # 1,2,3,4 ERneg.TamChemo, ERneg.Tam, ERneg.Chemo, ERneg.None
+  ERneg.TamChemo <- ifelse(tam.elig=='All', tam.prop*chemo.prop, 0)
+  ERneg.Tam <- ifelse(tam.elig=='All', tam.prop-ERneg.TamChemo, 0)
+  ERneg.Chemo <- chemo.prop-ERneg.TamChemo
+  ERneg.None <- 1-ERneg.TamChemo-ERneg.Tam-ERneg.Chemo
+  ERneg <- c(ERneg.TamChemo, ERneg.Tam, ERneg.Chemo, ERneg.None)
   # 4,5,6,7 ERpos.TamChemo, ERpos.Tam, ERpos.Chemo, ERpos.None
-  # Here, we do Chemo first, because we interpret the Tamoxifen proportion
-  # as including the Tam-Chemo people
-  ERpos.TamChemo <- ifelse(chemo.elig=='ERnegERposAdv' | chemo.elig=='All',
-                                  prop_ERpos*chemo.prop*tam.prop,
-                                  0)
-  ERpos.Tam <- prop_ERpos*tam.prop-ERpos.TamChemo
-  ERpos.Chemo <- prop_ERpos*chemo.prop-ERpos.TamChemo
-  ERpos.None <- prop_ERpos-ERpos.TamChemo-ERpos.Tam-ERpos.Chemo
+  ERpos.TamChemo <- ifelse(chemo.elig=='All' | 
+                               (stage=='Advanced' & chemo.elig=='ERnegERposAdv'),
+                           chemo.prop*tam.prop, 
+                           0)
+  ERpos.Tam <- tam.prop-ERpos.TamChemo
+  ERpos.Chemo <- ifelse(chemo.elig=='All' | 
+                            (stage=='Advanced' & chemo.elig=='ERnegERposAdv'),
+                        chemo.prop-ERpos.TamChemo,
+                        0)
+  ERpos.None <- 1-ERpos.TamChemo-ERpos.Tam-ERpos.Chemo
+  ERpos <- c(ERpos.TamChemo, ERpos.Tam, ERpos.Chemo, ERpos.None)
   names <- c(
-            'ERneg.Tam', 'ERneg.Chemo', 'ERneg.None',          
+            'ERneg.TamChemo', 'ERneg.Tam', 'ERneg.Chemo', 'ERneg.None',          
             'ERpos.TamChemo', 'ERpos.Tam', 'ERpos.Chemo', 'ERpos.None'
             )
-  all <- c(
-            ERneg.Tam, ERneg.Chemo, ERneg.None,
-            ERpos.TamChemo, ERpos.Tam, ERpos.Chemo, ERpos.None
-           )
+  all <- c(ERneg, ERpos)
   names(all) <- names
-  if ((sum(all)-1)<=.0001) return(all) else stop(paste('Error in treattumor_props: sum is',
+  if ((sum(all)-2)<=.0001) return(all) else stop(paste('Error in treattumor_props: sum is',
                                                sum(all)))
   return(all)
 }
 
+# 6/9/18: Changing order: return ER+ first, and put treatments in order of 
+# None, Tam, Chemo, TamChemo - to match paper, which is more logical since it
+# goes in order of intensity
+treattumor_props_altorder <- function(stage,       # Early or Advanced
+                             tam.elig,    # 'All' or 'ERpos'
+                             tam.prop,
+                             chemo.elig,  # 'All', 'ERneg', or 'ERnegERposAdv'
+                             chemo.prop) {
+    # We do TamChemo first, because we interpret the Tamoxifen proportion
+    # # as including the Tam-Chemo people
+    
+    # 1,2,3,4 ERneg.TamChemo, ERneg.Tam, ERneg.Chemo, ERneg.None
+    ERneg.TamChemo <- ifelse(tam.elig=='All', tam.prop*chemo.prop, 0)
+    ERneg.Tam <- ifelse(tam.elig=='All', tam.prop-ERneg.TamChemo, 0)
+    ERneg.Chemo <- chemo.prop-ERneg.TamChemo
+    ERneg.None <- 1-ERneg.TamChemo-ERneg.Tam-ERneg.Chemo
+    ERneg <- c(ERneg.None, ERneg.Tam, ERneg.Chemo, ERneg.TamChemo)
+    # 4,5,6,7 ERpos.TamChemo, ERpos.Tam, ERpos.Chemo, ERpos.None
+    ERpos.TamChemo <- ifelse(chemo.elig=='All' | 
+                                 (stage=='Advanced' & chemo.elig=='ERnegERposAdv'),
+                             chemo.prop*tam.prop, 
+                             0)
+    ERpos.Tam <- tam.prop-ERpos.TamChemo
+    ERpos.Chemo <- ifelse(chemo.elig=='All' | 
+                              (stage=='Advanced' & chemo.elig=='ERnegERposAdv'),
+                          chemo.prop-ERpos.TamChemo,
+                          0)
+    ERpos.None <- 1-ERpos.TamChemo-ERpos.Tam-ERpos.Chemo
+    ERpos <- c(ERpos.None, ERpos.Tam, ERpos.Chemo, ERpos.TamChemo)
+    names <- c(
+        'ERpos.None', 'ERpos.Tam', 'ERpos.Chemo', 'ERpos.TamChemo',
+        'ERneg.None', 'ERneg.Tam', 'ERneg.Chemo', 'ERneg.TamChemo'      
+    )
+    all <- c(ERpos, ERneg)
+    names(all) <- names
+    if ((sum(all)-2)<=.0001) return(all) else stop(paste('Error in treattumor_props: sum is',
+                                                         sum(all)))
+    return(all)
+}
 
 ############################################################
 # OLD
