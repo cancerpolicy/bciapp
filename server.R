@@ -95,7 +95,8 @@ datain.nh <- reactive({
     return(
         compile_naturalhist(prop_adv=prop_a0(), 
                             mortrates=c(Early=m.e, Advanced=m.a),
-                            subgroup_probs=c(`ER-`=1-prop_ERpos(), `ER+`=prop_ERpos()))
+                            #subgroup_probs=c(`ER-`=1-prop_ERpos(), `ER+`=prop_ERpos()))
+                            subgroup_probs=c(`ER+`=prop_ERpos(), `ER-`=1-prop_ERpos()))
     )
 })
 
@@ -153,7 +154,7 @@ datain.scenarios <- reactive({
 
 # Advanced
 a0t.reactive <- reactive({
-    treatvec <- treattumor_props(as.numeric(prop_ERpos()),
+    treatvec <- treattumor_props_altorder('Advanced',
                                              input$tam.elig.control,
                                              as.numeric(tam.prop.control()),
                                              input$chemo.elig.control,
@@ -167,7 +168,7 @@ output$a0t <- renderUI({
 
 # Early
 e0t.reactive  <- reactive({
-    treatvec <- treattumor_props(as.numeric(prop_ERpos()),
+    treatvec <- treattumor_props_altorder('Early',
                                  input$tam.elig.control,
                                  as.numeric(tam.prop.control()),
                                  input$chemo.elig.control,
@@ -185,7 +186,7 @@ output$e0t <- renderUI({
 
 # Advanced
 a1t.reactive <- reactive({
-    treatvec <- treattumor_props(as.numeric(prop_ERpos()),
+    treatvec <- treattumor_props_altorder('Advanced',
                                  input$tam.elig.interv,
                                  as.numeric(tam.prop.interv()),
                                  input$chemo.elig.interv,
@@ -199,7 +200,7 @@ output$a1t <- renderUI({
 
 # Early
 e1t.reactive <- reactive({
-    treatvec <- treattumor_props(as.numeric(prop_ERpos()),
+    treatvec <- treattumor_props_altorder('Early',
                                  input$tam.elig.interv,
                                  as.numeric(tam.prop.interv()),
                                  input$chemo.elig.interv,
@@ -217,15 +218,15 @@ output$e1t <- renderUI({
 
 # This relies on the ordering of subgroups and treatments defined in treattumor_props
 datain.tx <- reactive({
-    data.frame(SSno=c(1,1,1,2,2,2,2,3,3,3,4,4,4,4),
-               SSid=c(rep('Early.ER-',3),
-                      rep('Early.ER+',4),
-                      rep('Advanced.ER-',3),
-                      rep('Advanced.ER+',4)),
-               txSSno=1:14,
-               txSSid=rep(c('Tamoxifen', 'Chemo', 'None', 'Tamoxifen+Chemo',
-                            'Tamoxifen', 'Chemo', 'None'), 2),
-               txHR=rep(c(1, 0.775, 1, 0.5425, 0.7, 0.775, 1), 2),
+    data.frame(SSno=c(1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4),
+               SSid=c(rep('Early.ER+',4),
+                      rep('Early.ER-',4),
+                      rep('Advanced.ER+',4),
+                      rep('Advanced.ER-',4)),
+               txSSno=1:16,
+               txSSid=rep(c('None', 'Tamoxifen', 'Chemo', 'Tamoxifen+Chemo'), 4),
+               #txHR=rep(c(0.775, 1, 0.775, 1, 0.5425, 0.7, 0.775, 1), 2),
+               txHR=rep(c(1, 0.7, 0.775, 0.5425, 1, 1, 0.775, 0.775), 2),
                control=c(e0t.reactive(), a0t.reactive()),
                intervention=c(e1t.reactive(), a1t.reactive()),
                stringsAsFactors=FALSE)
@@ -258,16 +259,16 @@ output$paramsum2 <- renderTable({
              ,
              `Standard of Care`=c(NA,
                        100*a0t.reactive()[c('ERpos.None', 'ERpos.Tam', 'ERpos.Chemo', 
-                                        'ERpos.TamChemo')]/prop_ERpos(),
+                                        'ERpos.TamChemo')],
                        NA,
-                       100*a0t.reactive()[c('ERneg.None', 'ERneg.Tam', 'ERneg.Chemo')]/(1-prop_ERpos()),
-                       0),
+                       100*a0t.reactive()[c('ERneg.None', 'ERneg.Tam', 'ERneg.Chemo', 
+                                        'ERneg.TamChemo')]),
              Intervention=c(NA,
                        100*a1t.reactive()[c('ERpos.None', 'ERpos.Tam', 'ERpos.Chemo', 
-                                        'ERpos.TamChemo')]/prop_ERpos(),
+                                        'ERpos.TamChemo')],
                        NA,
-                       100*a1t.reactive()[c('ERneg.None', 'ERneg.Tam', 'ERneg.Chemo')]/(1-prop_ERpos()),
-                       0),
+                       100*a1t.reactive()[c('ERneg.None', 'ERneg.Tam', 'ERneg.Chemo', 
+                                          'ERneg.TamChemo')]),
              check.names=FALSE)
 
 }, NA.string='', digits=0)
@@ -279,16 +280,16 @@ output$paramsum3 <- renderTable({
              ,
              `Standard of Care`=c(NA,
                        100*e0t.reactive()[c('ERpos.None', 'ERpos.Tam', 'ERpos.Chemo', 
-                                        'ERpos.TamChemo')]/prop_ERpos(),
+                                        'ERpos.TamChemo')],
                        NA,
-                       100*e0t.reactive()[c('ERneg.None', 'ERneg.Tam', 'ERneg.Chemo')]/(1-prop_ERpos()),
-                       0),
+                       100*e0t.reactive()[c('ERneg.None', 'ERneg.Tam', 'ERneg.Chemo',
+                                            'ERneg.TamChemo')]),
              Intervention=c(NA,
                        100*e1t.reactive()[c('ERpos.None', 'ERpos.Tam', 'ERpos.Chemo', 
-                                        'ERpos.TamChemo')]/prop_ERpos(),
+                                        'ERpos.TamChemo')],
                        NA,
-                       100*e1t.reactive()[c('ERneg.None', 'ERneg.Tam', 'ERneg.Chemo')]/(1-prop_ERpos()),
-                       0),
+                       100*e1t.reactive()[c('ERneg.None', 'ERneg.Tam', 'ERneg.Chemo',
+                                            'ERneg.TamChemo')]),
              check.names=FALSE)
 
 }, NA.string='', digits=0)
@@ -317,7 +318,7 @@ output$hazards <- renderTable({
 
 runresults <- reactive({
     start <- proc.time()
-    # Using defaults for popsize, denom and futimes
+     
     results <- simpolicies(scenarios=datain.scenarios(),
                        naturalhist=datain.nh(),
                        treatinfo=datain.tx(),
