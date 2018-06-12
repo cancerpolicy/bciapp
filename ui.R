@@ -151,6 +151,13 @@ shinyUI(fluidPage(
              sliderInput("nsim", label = "Number of simulations",
                          min=5, max=100, step=5, value=50)
     ),
+#    tabPanel("Debugging",
+#             tableOutput('debug'),
+#             tableOutput('debug2'),
+#             tableOutput('debug3'),
+#             tableOutput('debug4'),
+#             verbatimTextOutput('checkScenarios')
+#    ),
     "Results",
     tabPanel("Review inputs",
               h3('Confirm selected parameters'),
@@ -211,7 +218,8 @@ shinyUI(fluidPage(
              tableOutput('resultsTable20'),
              h4('Model notes and run time'),
              p('Run time, in minutes'),
-             verbatimTextOutput('runTime')
+             verbatimTextOutput('runTime')             
+#             tableOutput('debug5')
              ),
     tabPanel("Uncertainty",
              h5('Empirical 95% uncertainty intervals'),

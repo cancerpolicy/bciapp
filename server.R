@@ -232,6 +232,77 @@ datain.tx <- reactive({
                stringsAsFactors=FALSE)
 })
 
+################################################################################
+# CHECK WHETHER SCENARIOS ARE PAIRED, AND FINALIZE INPUTS TO SIMPOLICIES
+################################################################################
+#-------------------------------------------------------------------------------
+# If there is early detection in the intervention, does the base have the same
+# treatments? That's what it means to be paired
+#-------------------------------------------------------------------------------
+check <- reactive({
+    return(check_scenarios(datain.scenarios(), datain.tx()))
+})
+
+#-------------------------------------------------------------------------------
+# Create final scenario data frame
+#-------------------------------------------------------------------------------
+
+final.scenarios <- reactive({
+    if (length(check())==1) {
+        return(datain.scenarios())
+    } else {
+        # We're going to insert an additional scenario that has the 
+        # same treatments as the intervention, but no early detection
+        df <- rbind(datain.scenarios(),
+                    datain.scenarios()[2,])
+        
+        df$num[3] <- 3
+        df$id[2] <- 'temp'
+        df$name[2] <- 'Temp'
+        df$pairnum[2:3] <- c(NA, 2)
+        df$earlydetHR[2] <- 1
+        
+        return(df)
+    }
+})
+
+#-------------------------------------------------------------------------------
+# Create final treatment data frame
+#-------------------------------------------------------------------------------
+final.tx <- reactive({
+    if (length(check())==1) {
+        return(datain.tx())
+    } else {
+        # We're going to insert an additional scenario that has the 
+        # same treatments as the intervention, but no early detection
+        df <- cbind(datain.tx(),
+                    datain.tx()[,'intervention'])
+        colnames(df)[ncol(df)] <- 'temp'
+        return(df)
+    }
+})
+
+#-------------------------------------------------------------------------------
+# Define columns to display in results
+#-------------------------------------------------------------------------------
+resultsCols <- reactive({
+    if (length(check())==1) return(c(1,2)) else return(c(1,3))
+})
+
+#-------------------------------------------------------------------------------
+# For debugging - will only display the final reactive
+#-------------------------------------------------------------------------------
+
+output$checkScenarios <- renderPrint({
+    cat('\n\nResult of check_scenarios for raw inputs is:\n')
+    check()
+    cat('\n\nFinal scenario input data frame is:\n')
+    final.scenarios()
+    cat('\n\nFinal treatment input data frame is:\n')
+    final.tx()
+    cat('\nResults cols will be\n')
+    resultsCols()
+})
 
 ################################################################################
 # PARAMETER SUMMARY TABLES
@@ -319,9 +390,9 @@ output$hazards <- renderTable({
 runresults <- reactive({
     start <- proc.time()
      
-    results <- simpolicies(scenarios=datain.scenarios(),
+    results <- simpolicies(scenarios=final.scenarios(),
                        naturalhist=datain.nh(),
-                       treatinfo=datain.tx(),
+                       treatinfo=final.tx(),
                        agesource='Standard',
                        minage=as.numeric(input$agerange[1]),
                        maxage=as.numeric(input$agerange[2]),
@@ -366,10 +437,10 @@ output$caption20 <- renderText({
 #    results()[['5']]$mean[2:6,]
 #}, digits=2, include.rownames=TRUE)
 output$resultsTable10 <- renderTable({
-    results()[['10']]$mean[2:6,]
+    results()[['10']]$mean[2:6, resultsCols()]
 }, digits=2, include.rownames=TRUE)
 output$resultsTable20 <- renderTable({
-    results()[['20']]$mean[2:6,]
+    results()[['20']]$mean[2:6, resultsCols()]
 }, digits=2, include.rownames=TRUE)
 
 #-------------------------------------------------------------------------------
@@ -384,13 +455,31 @@ uncertainty <- reactive({
 #    uncertainty()[['5']]
 #}, rownames = TRUE)
 output$uncertaintyTable10 <- renderTable({
-    uncertainty()[['10']]
+    uncertainty()[['10']][, resultsCols()]
 }, rownames = TRUE)
 # }, align='c', include.rownames=TRUE)
 output$uncertaintyTable20 <- renderTable({
-    uncertainty()[['20']]
+    uncertainty()[['20']][, resultsCols()]
 }, rownames = TRUE)
 # }, rownames = TRUE, align='?cc')
+
+#-------------------------------------------------------------------------------
+# Debug table of results
+#-------------------------------------------------------------------------------
+output$debug5 <- renderTable({
+    results <- results()
+    if (1==0) {
+        results <- lapply(results, function(x) {
+            x <- data.frame(x$mean, check.names=FALSE)
+            oldcols <- colnames(x)
+            x$Statistic <- rownames(x)
+            colnames(x)  <-  c(oldcols, 'Statistic')
+            return(x)
+        })
+        results <- ldply(results, .id='Year')    
+        return(results)
+    } else return(results[['10']]$mean)
+})
 
 #-------------------------------------------------------------------------------
 # Graph
@@ -405,6 +494,8 @@ output$resultsGraph <- renderPlot({
                           return(x)
              })
     results <- ldply(results, .id='Year')
+    # If there was a Temp scenario inserted, remove it
+    if (ncol(results)==5) results <- results[,c(1,2,4,5)]
     colnames(results)[2:3] <- c('Standard of Care', 'Intervention') 
     results <- results[,c('Year', 'Statistic', 'Standard of Care', 'Intervention')]
     results <- transform(results, 
