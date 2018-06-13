@@ -161,9 +161,13 @@ a0t.reactive <- reactive({
                                              as.numeric(chemo.prop.control()))
     return(treatvec)
 })
-output$a0t <- renderUI({
-    textInput('prop.a0.t', 'Advanced cases, standard of care', 
-                paste(as.character(a0t.reactive()),collapse=','))
+output$a0tERpos <- renderUI({
+    textInput('prop.a0.t.ERpos', 'ER+', 
+                paste(as.character(a0t.reactive()[1:4]),collapse=','))
+})
+output$a0tERneg <- renderUI({
+    textInput('prop.a0.t.ERneg', 'ER-', 
+              paste(as.character(a0t.reactive()[5:8]),collapse=','))
 })
 
 # Early
@@ -175,9 +179,13 @@ e0t.reactive  <- reactive({
                                  as.numeric(chemo.prop.control()))
     return(treatvec)
 })
-output$e0t <- renderUI({
-    textInput('prop.e0.t', 'Early cases, standard of care', 
-              paste(as.character(e0t.reactive()),collapse=','))
+output$e0tERpos <- renderUI({
+    textInput('prop.e0.t.ERpos', 'ER+', 
+              paste(as.character(e0t.reactive()[1:4]),collapse=','))
+})
+output$e0tERneg <- renderUI({
+    textInput('prop.e0.t.ERneg', 'ER-', 
+              paste(as.character(e0t.reactive()[5:8]),collapse=','))
 })
 
 #-------------------------------------------------------------------------------
@@ -193,9 +201,13 @@ a1t.reactive <- reactive({
                                  as.numeric(chemo.prop.interv()))
     return(treatvec)
 })
-output$a1t <- renderUI({
-    textInput('prop.a1.t', 'Advanced cases, intervention', 
-              paste(as.character(a1t.reactive()),collapse=','))
+output$a1tERpos <- renderUI({
+    textInput('prop.a1.t.ERpos', 'ER+', 
+              paste(as.character(a1t.reactive()[1:4]),collapse=','))
+})
+output$a1tERneg <- renderUI({
+    textInput('prop.a1.t.ERneg', 'ER-', 
+              paste(as.character(a1t.reactive()[5:8]),collapse=','))
 })
 
 # Early
@@ -207,17 +219,70 @@ e1t.reactive <- reactive({
                                  as.numeric(chemo.prop.interv()))
     return(treatvec)
 })
-output$e1t <- renderUI({
-    textInput('prop.e1.t', 'Early cases, intervention', 
-              paste(as.character(e1t.reactive()),collapse=','))
+output$e1tERpos <- renderUI({
+    textInput('prop.e1.t.ERpos', 'ER+', 
+              paste(as.character(e1t.reactive()[1:4]),collapse=','))
+})
+output$e1tERneg <- renderUI({
+    textInput('prop.e1.t.ERneg', 'ER-', 
+              paste(as.character(e1t.reactive()[5:8]),collapse=','))
 })
 
 #-------------------------------------------------------------------------------
 # Compile into data frame for input into bcimodel::simpolicies
 #-------------------------------------------------------------------------------
+no_update <- reactive({ is.null(input$prop.a1.t.ERpos) })
+output$e0t <- renderPrint({ cat(is.null(input$prop.e1.t.ERneg)) })
+
+e0t.updated <- reactive({
+    if (no_update()) {
+        return(e0t.reactive())
+    } else {
+        return(c(as.numeric(strsplit(input$prop.e0.t.ERpos, ',')[[1]]),
+                 as.numeric(strsplit(input$prop.e0.t.ERneg, ',')[[1]]))
+        )
+    }
+})
+
+a0t.updated <- reactive({
+    if (no_update()) {
+        return(a0t.reactive())
+    } else {
+        return(
+            c(as.numeric(strsplit(input$prop.a0.t.ERpos, ',')[[1]]),
+              as.numeric(strsplit(input$prop.a0.t.ERneg, ',')[[1]]))
+        )
+    }
+})
+
+e1t.updated <- reactive({
+    if (no_update()) {
+        return(e1t.reactive())
+    } else {
+        return(
+            c(as.numeric(strsplit(input$prop.e1.t.ERpos, ',')[[1]]),
+              as.numeric(strsplit(input$prop.e1.t.ERneg, ',')[[1]]))
+        )
+    }
+})
+
+a1t.updated <- reactive({
+    if (no_update()) {
+        return(a1t.reactive())
+    } else {
+        c(as.numeric(strsplit(input$prop.a1.t.ERpos, ',')[[1]]),
+          as.numeric(strsplit(input$prop.a1.t.ERneg, ',')[[1]]))
+    }
+})
 
 # This relies on the ordering of subgroups and treatments defined in treattumor_props
 datain.tx <- reactive({
+    # Update the treatment vectors IF advanced controls have been used
+    # I'm trying to allow users to bypass advanced treatment controls and still
+    # have the treatment initialized properly. If the first vector input
+    # is null, they haven't clicked on the advanced control page
+    
+    # Create treatment data frame
     data.frame(SSno=c(1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4),
                SSid=c(rep('Early.ER+',4),
                       rep('Early.ER-',4),
@@ -227,8 +292,8 @@ datain.tx <- reactive({
                txSSid=rep(c('None', 'Tamoxifen', 'Chemo', 'Tamoxifen+Chemo'), 4),
                #txHR=rep(c(0.775, 1, 0.775, 1, 0.5425, 0.7, 0.775, 1), 2),
                txHR=rep(c(1, 0.7, 0.775, 0.5425, 1, 1, 0.775, 0.775), 2),
-               control=c(e0t.reactive(), a0t.reactive()),
-               intervention=c(e1t.reactive(), a1t.reactive()),
+               control=c(e0t.updated(), a0t.updated()),
+               intervention=c(e1t.updated(), a1t.updated()),
                stringsAsFactors=FALSE)
 })
 
